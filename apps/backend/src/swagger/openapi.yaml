@@ -1,0 +1,283 @@
+openapi: 3.0.3
+info:
+  title: Tuition Management API
+  description: >
+    API for managing courses, teachers, batches, and schedules
+    for a tuition center. This is the Admin setup MVP.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Authentication APIs
+  - name: Admin - Courses
+    description: Admin course management
+  - name: Admin - Teachers
+    description: Admin teacher management
+  - name: Admin - Batches
+    description: Admin batch management
+  - name: Admin - Schedules
+    description: Admin batch scheduling
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, PARENT, TEACHER]
+
+    CreateCourseRequest:
+      type: object
+      required: [standard, description, defaultFee, defaultDurationMinutes]
+      properties:
+        standard:
+          type: integer
+          minimum: 1
+          maximum: 10
+        description:
+          type: string
+        defaultFee:
+          type: integer
+          minimum: 0
+        defaultDurationMinutes:
+          type: integer
+          enum: [60, 90]
+
+    CourseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        standard:
+          type: integer
+
+    CreateTeacherRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    TeacherResponse:
+      type: object
+      properties:
+        teacherId:
+          type: string
+          format: uuid
+
+    CreateBatchRequest:
+      type: object
+      required: [courseId, teacherId]
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        teacherId:
+          type: string
+          format: uuid
+        capacity:
+          type: integer
+          default: 30
+          minimum: 1
+
+    BatchResponse:
+      type: object
+      properties:
+        batchId:
+          type: string
+          format: uuid
+
+    CreateScheduleRequest:
+      type: object
+      required: [dayOfWeek, startTime, endTime]
+      properties:
+        dayOfWeek:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: 1 = Monday, 7 = Sunday
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+
+    ScheduleResponse:
+      type: object
+      properties:
+        scheduleId:
+          type: string
+          format: uuid
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user and obtain JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/courses:
+    post:
+      tags: [Admin - Courses]
+      summary: Create a new course (standard)
+      description: ADMIN only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCourseRequest"
+      responses:
+        "201":
+          description: Course created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "400":
+          description: Invalid input or duplicate standard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/teachers:
+    post:
+      tags: [Admin - Teachers]
+      summary: Create a teacher (Mom/Dad)
+      description: ADMIN only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeacherRequest"
+      responses:
+        "201":
+          description: Teacher created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherResponse"
+        "400":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/batches:
+    post:
+      tags: [Admin - Batches]
+      summary: Create a batch for a course
+      description: ADMIN only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBatchRequest"
+      responses:
+        "201":
+          description: Batch created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchResponse"
+        "400":
+          description: Invalid course or teacher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/batches/{batchId}/schedules:
+    post:
+      tags: [Admin - Schedules]
+      summary: Add schedule to a batch
+      description: ADMIN only
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleRequest"
+      responses:
+        "201":
+          description: Schedule added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleResponse"
+        "400":
+          description: Invalid time window or duration mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
